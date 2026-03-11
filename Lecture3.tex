@@ -5464,7 +5464,2657 @@ You can now visualize ordinal data with cumulative CDFs, diverging bars, median+
 \end{frame}
 
 % ═══════════════════════════════════════════════════════
-%  MODULE 3.7+ — Append here
+%  MODULE 3.7 — Contingency Table Variants: Log-Linear Models and Fourfold Displays
+% ═══════════════════════════════════════════════════════
+\section{Module 3.7 --- Log-Linear Models, Fourfold, and Advanced Tables}
+
+% ── 182 ──
+\begin{frame}{Module 3.7 --- Roadmap}\smark{182/300}
+\begin{enumerate}
+    \item Fourfold displays for $2 \times 2$ tables and odds ratios
+    \item Odds ratio forest plots for stratified $2 \times 2$ tables
+    \item Log-linear models: visualizing multi-way tables
+    \item Doubledecker plots: conditional proportions
+    \item Conditional density (CD) plots
+    \item Agreement plots and Cohen's $\kappa$
+    \item Sieve and fluctuation diagrams
+    \item Choosing the right display for your table
+\end{enumerate}
+\end{frame}
+
+% ── 183 ──
+\begin{frame}{Fourfold Displays}
+\smark{183/300}
+\centering
+\includegraphics[width=0.55\textwidth]{m3_7_fourfold.png}
+
+\vspace{0.2cm}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{itemize}
+    \item Designed for $2 \times 2$ tables
+    \item Four quarter-circles, one per cell
+    \item Radius $\propto \sqrt{n_{ij}}$ (area $\propto$ count)
+    \item If OR $= 1$: opposite quarters are equal
+    \item If OR $\neq 1$: diagonal imbalance reveals effect
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Treatment + Success (upper-right) is much larger than Treatment + Failure (upper-left): treatment has a strong positive effect. OR $= 3.50$ means treatment triples the odds of success.
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 184 ──
+\begin{frame}[fragile]{Fourfold Display --- Code}\smark{184/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+library(vcd)
+
+# 2x2 table
+ct <- matrix(c(120, 30, 80, 70),
+  nrow=2, byrow=TRUE,
+  dimnames=list(
+    Group=c("Treatment","Control"),
+    Outcome=c("Success","Failure")))
+
+# Fourfold display
+fourfoldplot(ct,
+  color = c("#1B9E77","#B2182B"),
+  conf.level = 0.95)  # adds CI
+
+# With stratification
+# (one fourfold per stratum)
+ct_3d <- array(c(...),
+  dim=c(2,2,2))
+fourfoldplot(ct_3d)
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+# No built-in fourfold in Python.
+# Manual with matplotlib Wedge:
+from matplotlib.patches import Wedge
+
+for (cx,cy,t1,t2), r, c_ in zip(
+    positions, radii, colors):
+    wedge = Wedge((cx, cy), r,
+        t1, t2, facecolor=c_,
+        edgecolor="white")
+    ax.add_patch(wedge)
+
+# OR calculation
+a, b, c, d = 120, 30, 80, 70
+OR = (a * d) / (b * c)
+# CI: exp(log(OR) +/- 1.96*SE)
+se = np.sqrt(1/a+1/b+1/c+1/d)
+ci_lo = np.exp(np.log(OR) - 1.96*se)
+ci_hi = np.exp(np.log(OR) + 1.96*se)
+\end{lstlisting}
+\vspace{0.1cm}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize R's \texttt{fourfoldplot(conf.level=0.95)} overlays confidence rings. If the rings for opposite diagonal cells overlap, the OR is not significant at that $\alpha$.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 185 ──
+\begin{frame}{Odds Ratio: The $2 \times 2$ Effect Size}
+\smark{185/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+$$\text{OR} = \frac{ad}{bc}$$
+\begin{itemize}
+    \item OR $= 1$: no association
+    \item OR $> 1$: positive association (treatment helps)
+    \item OR $< 1$: negative association (treatment harms)
+    \item Scale is multiplicative: OR $= 2$ means ``doubles the odds''
+    \item Always report with 95\% CI
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Interpreting OR $= 3.50$: ``Treatment patients had 3.5$\times$ the odds of success compared to controls.'' More precisely: $P(\text{success}|\text{trt}) / P(\text{fail}|\text{trt})$ is 3.5$\times$ the corresponding odds in controls.
+\end{exampleblock}
+\vspace{0.1cm}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize For rare outcomes ($< 10\%$ prevalence), OR $\approx$ relative risk (RR). For common outcomes, OR inflates the apparent effect. Report RR for cohort/experimental studies; OR for case-control.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 186 ──
+\begin{frame}{Odds Ratio Forest Plot}
+\smark{186/300}
+\centering
+\includegraphics[width=0.68\textwidth]{m3_7_or_forest.png}
+
+\vspace{0.2cm}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{itemize}
+    \item One row per stratum (study, subgroup)
+    \item Square = OR, size $\propto$ weight
+    \item Horizontal line = 95\% CI
+    \item Dashed line at OR $= 1$ (null)
+    \item Diamond = pooled estimate
+    \item \textbf{Log scale} on $x$-axis (OR is multiplicative)
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Study 4's CI crosses 1 (non-significant). All others favor treatment. The pooled OR $= 1.8$ suggests a moderate treatment effect across studies. Heterogeneity is visible: Study 3 (OR $= 3.2$) is much stronger than Study 4 (OR $= 0.8$).
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 187 ──
+\begin{frame}[fragile]{OR Forest Plot --- Code}\smark{187/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+library(meta)
+
+# From individual 2x2 tables
+m <- metabin(event.e=a_vec,
+  n.e=n_trt, event.c=c_vec,
+  n.c=n_ctrl, studlab=studies,
+  sm="OR")
+
+forest(m,
+  col.square="#2166AC",
+  col.diamond="#B2182B",
+  xlab="Odds Ratio",
+  xlim=c(0.2, 10))
+
+# Manual with ggplot2
+ggplot(or_df,
+  aes(or, fct_reorder(study, or)))+
+  geom_pointrange(aes(
+    xmin=ci_lo, xmax=ci_hi)) +
+  geom_vline(xintercept=1,
+    linetype="dashed") +
+  scale_x_log10()
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+fig, ax = plt.subplots()
+for i, (study, or_val, lo, hi, w)\
+    in enumerate(zip(
+        studies, ors, ci_lo,
+        ci_hi, weights)):
+    ax.scatter(or_val, i,
+        s=w*8, color="#2166AC")
+    ax.errorbar(or_val, i,
+        xerr=[[or_val-lo],[hi-or_val]],
+        fmt="none", color="#2166AC",
+        capsize=0, linewidth=1.5)
+
+ax.axvline(1, linestyle="--",
+    color="#CCC")
+ax.set_xscale("log")
+ax.set_yticks(range(len(studies)))
+ax.set_yticklabels(studies)
+ax.set_xlabel("Odds Ratio (log scale)")
+\end{lstlisting}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 188 ──
+\begin{frame}{Log-Linear Models for Multi-Way Tables}
+\smark{188/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}
+    \item Generalize $\chi^2$ to 3+ dimensional tables
+    \item Model: $\log(\mu_{ijk}) = \lambda + \lambda_i^A + \lambda_j^B + \lambda_k^C + \lambda_{ij}^{AB} + \ldots$
+    \item \textbf{Hierarchy of models}: independence $\to$ conditional independence $\to$ homogeneous association $\to$ saturated
+    \item Compare via deviance ($G^2$)
+    \item Residuals identify which cells misfit
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize R: \texttt{glm(count \textasciitilde\ A*B*C, family=poisson)} fits the saturated log-linear model. Drop interaction terms to test nested hypotheses. \texttt{MASS::loglm()} provides a dedicated interface.
+\end{alertblock}
+\vspace{0.1cm}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Log-linear models answer: ``Is the A$\times$B interaction present after controlling for C?'' The visualization of choice: residual-shaded mosaics or bar charts of observed vs.\ expected (next slide).
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 189 ──
+\begin{frame}{Log-Linear Residuals}
+\smark{189/300}
+\centering
+\includegraphics[width=0.88\textwidth]{m3_7_loglinear_resid.png}
+
+\vspace{0.2cm}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Left: observed vs.\ expected under the independence model. Large discrepancies (e.g., Treatment+Male+Success is 65 observed vs.\ 48 expected) indicate that the independence model fails. Right: Pearson residuals flag the specific cells driving the misfit.
+\end{exampleblock}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize The bar chart of residuals is the log-linear analog of the ``residuals vs.\ fitted'' plot for regression. Cells with $|r| > 2$ need a higher-order interaction term to explain them.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 190 ──
+\begin{frame}[fragile]{Log-Linear Models --- Code}\smark{190/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+library(MASS)
+
+# Fit log-linear models
+# Independence: no interactions
+m0 <- loglm(~ A + B + C, data=ct3d)
+# Conditional independence
+m1 <- loglm(~ A*B + C, data=ct3d)
+# Saturated
+m2 <- loglm(~ A*B*C, data=ct3d)
+
+# Compare
+anova(m0, m1, m2)
+# Deviance (G2) and p-value
+
+# Residuals
+residuals(m1, type="pearson")
+
+# Mosaic of the best model
+mosaic(m1, shade=TRUE)
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+import statsmodels.api as sm
+
+# Fit Poisson GLM (log-linear)
+# Independence model
+m0 = sm.GLM(counts,
+    sm.add_constant(
+        pd.get_dummies(
+            df[["A","B","C"]])),
+    family=sm.families.Poisson()
+    ).fit()
+
+# With interaction
+formula = "count ~ A*B + C"
+m1 = smf.glm(formula, data=df,
+    family=sm.families.Poisson()
+    ).fit()
+
+# Deviance comparison
+print(f"G2 = {m0.deviance:.2f}, "
+      f"df = {m0.df_resid}")
+# Residuals
+resid = m1.resid_pearson
+\end{lstlisting}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 191 ──
+\begin{frame}{Doubledecker Plots}
+\smark{191/300}
+\centering
+\includegraphics[width=0.72\textwidth]{m3_7_doubledecker.png}
+
+\vspace{0.2cm}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{itemize}
+    \item Width $\propto$ group size (like a mosaic)
+    \item Height shows \textbf{conditional proportion} of the response
+    \item Highlights the response variable with color
+    \item A ``spine plot'' conditioned on multiple predictors
+    \item Best for showing how a binary outcome varies across combinations
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{exampleblock}{Data Insight}
+    \scriptsize 1st-class females (leftmost bar) have 97\% survival. 3rd-class males (widest bar, rightmost) have only 17\%. The doubledecker makes both the proportion and the group size visible simultaneously.
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 192 ──
+\begin{frame}[fragile]{Doubledecker --- Code}\smark{192/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+library(vcd)
+
+# Doubledecker plot
+doubledecker(survived ~ class + sex,
+  data = titanic)
+
+# With custom colors
+doubledecker(survived ~ class + sex,
+  data = titanic,
+  gp = gpar(fill = c("#B2182B",
+                      "#1B9E77")))
+
+# The response variable goes first
+# in the formula; predictors after ~
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+# Manual doubledecker
+groups = [("1st","F"), ("1st","M"),
+    ("2nd","F"), ...]
+n_vals = [94, 122, 76, ...]
+surv_rates = [0.97, 0.33, 0.89, ...]
+total = sum(n_vals)
+
+x_start = 0
+for (cls, sex), n, sr in zip(
+    groups, n_vals, surv_rates):
+    w = n / total * 0.95
+    ax.add_patch(Rectangle(
+        (x_start, 0), w, 1-sr,
+        facecolor="#B2182B", alpha=0.6))
+    ax.add_patch(Rectangle(
+        (x_start, 1-sr), w, sr,
+        facecolor="#1B9E77", alpha=0.6))
+    x_start += w + 0.01
+\end{lstlisting}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 193 ──
+\begin{frame}{Conditional Density (CD) Plots}
+\smark{193/300}
+\centering
+\includegraphics[width=0.72\textwidth]{m3_7_cd_plot.png}
+
+\vspace{0.2cm}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{itemize}
+    \item $x$-axis: a \textbf{continuous} predictor (e.g., age)
+    \item $y$-axis: conditional proportion of each response level
+    \item Stacked areas sum to 1 at every $x$
+    \item Shows how the \textbf{outcome composition} changes continuously along $x$
+    \item The continuous analog of a doubledecker
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{exampleblock}{Data Insight}
+    \scriptsize At age 10, survival probability is high ($\sim$80\%). By age 60, it drops to $\sim$30\%. The CD plot shows this transition smoothly --- no arbitrary age binning required.
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 194 ──
+\begin{frame}[fragile]{CD Plot --- Code}\smark{194/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+library(vcd)
+# CD plot (base R)
+cd_plot(survived ~ age,
+  data = titanic)
+
+# ggplot2 approach
+ggplot(titanic,
+  aes(age, fill = survived)) +
+  geom_density(position = "fill") +
+  scale_fill_manual(values = c(
+    "#B2182B","#1B9E77")) +
+  labs(y = "Conditional Proportion")+
+  theme_minimal()
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+# Logistic curve approach
+from scipy.special import expit
+
+ages = np.linspace(0, 80, 200)
+# Fit logistic: P(surv|age)
+p_surv = expit(-(0.02*(ages-30)))
+
+ax.fill_between(ages, 0, p_surv,
+    color="#1B9E77", alpha=0.5,
+    label="Survived")
+ax.fill_between(ages, p_surv, 1,
+    color="#B2182B", alpha=0.5,
+    label="Died")
+ax.set_xlabel("Age")
+ax.set_ylabel("Conditional Proportion")
+ax.legend()
+\end{lstlisting}
+\vspace{0.1cm}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize \texttt{vcd::cd\_plot()} is the dedicated R function. In ggplot2, \texttt{geom\_density(position="fill")} approximates it. In Python, fit a logistic model and plot the predicted probabilities as stacked areas.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 195 ──
+\begin{frame}{Agreement Plots and Cohen's $\kappa$}
+\smark{195/300}
+\centering
+\includegraphics[width=0.52\textwidth]{m3_7_agreement.png}
+
+\vspace{0.2cm}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{itemize}
+    \item Cross-tabulation of two raters' classifications
+    \item Diagonal = \textbf{agreement}; off-diagonal = disagreement
+    \item Cohen's $\kappa = (p_o - p_e) / (1 - p_e)$
+    \item $\kappa > 0.8$: excellent; $0.6$--$0.8$: substantial; $0.4$--$0.6$: moderate
+    \item Visualize as a heatmap with diagonal highlighted
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{exampleblock}{Data Insight}
+    \scriptsize The diagonal is dark (high agreement). Off-diagonal cells are light (few disagreements). $\kappa = 0.71$ indicates ``substantial'' inter-rater reliability. The heatmap reveals \emph{where} disagreements occur: mostly between adjacent categories.
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 196 ──
+\begin{frame}[fragile]{Agreement Plot --- Code}\smark{196/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+library(vcd)
+# Cohen's kappa
+Kappa(ct)  # gives kappa + CI
+
+# Agreement plot
+agreementplot(ct)
+
+# irr package for multiple raters
+library(irr)
+kappa2(ratings[, c("rater1",
+  "rater2")])
+
+# Fleiss' kappa (3+ raters)
+kappam.fleiss(ratings_matrix)
+
+# Weighted kappa (ordinal)
+kappa2(ratings, weight="squared")
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+from sklearn.metrics import (
+    cohen_kappa_score,
+    confusion_matrix)
+
+kappa = cohen_kappa_score(
+    rater1, rater2)
+print(f"kappa = {kappa:.3f}")
+
+# Weighted (ordinal)
+kappa_w = cohen_kappa_score(
+    rater1, rater2,
+    weights="quadratic")
+
+# Heatmap of agreement
+cm = confusion_matrix(rater1, rater2)
+sns.heatmap(cm, annot=True,
+    fmt="d", cmap="Blues")
+
+# Krippendorff's alpha
+# pip install krippendorff
+import krippendorff
+alpha = krippendorff.alpha(
+    ratings_matrix)
+\end{lstlisting}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 197 ──
+\begin{frame}{Weighted $\kappa$ for Ordinal Categories}
+\smark{197/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}
+    \item Unweighted $\kappa$ treats all disagreements equally
+    \item For ordinal data: disagreement by 1 level is less serious than by 3 levels
+    \item \textbf{Linear weights}: penalty $\propto |i - j|$
+    \item \textbf{Quadratic weights}: penalty $\propto (i - j)^2$
+    \item Quadratic-weighted $\kappa$ is equivalent to the intraclass correlation (ICC)
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize Always use \textbf{weighted $\kappa$} for ordinal ratings. Unweighted $\kappa$ penalizes a 4-vs-5 disagreement as heavily as a 1-vs-5 disagreement, which is misleading for ordinal scales.
+\end{alertblock}
+\vspace{0.1cm}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Visualize the weight matrix as a heatmap alongside the agreement matrix: the reader sees both the observed disagreements and how severely they are penalized.
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 198 ──
+\begin{frame}{Sieve Diagrams}
+\smark{198/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}
+    \item All cells have \textbf{equal area} (unlike mosaics)
+    \item Density of hatching $\propto$ observed / expected ratio
+    \item Dense lines = more than expected
+    \item Sparse lines = fewer than expected
+    \item Uses texture rather than color to encode residuals
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize R: \texttt{vcd::sieve(ct, shade=TRUE)}. Sieve diagrams are useful when (a) you want to avoid color for residuals (colorblind audience), or (b) you want to show the table structure without area distortion.
+\end{alertblock}
+\vspace{0.1cm}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Sieve diagrams were introduced by Riedwyl \& Sch\"upbach (1983). They are less common than mosaics but have the advantage of preserving equal cell areas, making the hatching density the only visual variable.
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 199 ──
+\begin{frame}{Fluctuation Diagrams}
+\smark{199/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}
+    \item Grid of rectangles, one per cell
+    \item Rectangle \textbf{size} $\propto$ cell count
+    \item Position fixed (row $\times$ column grid)
+    \item Similar to a balloon plot but with rectangles
+    \item Can add color for a third variable (residual, proportion)
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize R: \texttt{vcd::fluctuation(ct)} or \texttt{ggplot2} with \texttt{geom\_tile(aes(width=sqrt(n), height=sqrt(n)))}. Python: manual rectangles with variable size. Fluctuation diagrams are the ``bubble chart'' of contingency tables.
+\end{alertblock}
+\vspace{0.1cm}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Fluctuation diagrams work for tables up to $\sim 10 \times 10$. Beyond that, the rectangles become too small. For larger tables, use the heatmap (Module 2.6) or CA biplot (Module 3.5).
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 200 ──
+\begin{frame}[fragile]{Sieve and Fluctuation --- Code}\smark{200/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+library(vcd)
+
+# Sieve diagram
+sieve(ct, shade = TRUE,
+  main = "Sieve: Class x Survived")
+
+# Fluctuation diagram
+fluctuation(ct, main = "Fluctuation")
+
+# ggplot2 fluctuation
+ct_df <- as.data.frame(ct)
+ggplot(ct_df, aes(Var1, Var2)) +
+  geom_tile(aes(
+    width = sqrt(Freq/max(Freq)),
+    height = sqrt(Freq/max(Freq)),
+    fill = Freq)) +
+  scale_fill_viridis_c() +
+  coord_equal() +
+  theme_minimal()
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+# Manual fluctuation in matplotlib
+for i, row_label in enumerate(rows):
+    for j, col_label in enumerate(cols):
+        count = ct.iloc[i, j]
+        size = np.sqrt(count / ct.max()
+            .max()) * 0.9
+        rect = plt.Rectangle(
+            (j - size/2, i - size/2),
+            size, size,
+            facecolor=plt.cm.viridis(
+                count / ct.max().max()),
+            edgecolor="white")
+        ax.add_patch(rect)
+        ax.text(j, i, str(count),
+            ha="center", va="center",
+            fontsize=8)
+ax.set_xticks(range(len(cols)))
+ax.set_xticklabels(cols)
+\end{lstlisting}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 201 ──
+\begin{frame}{Log-Linear Model Hierarchy}
+\smark{201/300}
+\centering\small
+\begin{tabular}{@{}llll@{}}
+    \toprule
+    \textbf{Model} & \textbf{Formula (R)} & \textbf{Tests} & \textbf{df} \\
+    \midrule
+    Mutual independence & \texttt{\textasciitilde\ A + B + C}   & No associations        & $(r-1)(c-1) + \ldots$ \\
+    Joint independence  & \texttt{\textasciitilde\ A*B + C}     & A$\times$B, but C indep & Smaller \\
+    Conditional indep   & \texttt{\textasciitilde\ A*C + B*C}   & A$\perp$B $|$ C       & $(r-1)(c-1)$ \\
+    Homogeneous assoc   & \texttt{\textasciitilde\ A*B + A*C + B*C} & All 2-way, no 3-way & $(r-1)(c-1)(k-1)$ \\
+    Saturated           & \texttt{\textasciitilde\ A*B*C}       & All associations      & 0 \\
+    \bottomrule
+\end{tabular}
+
+\vspace{0.3cm}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Work from the simplest model (mutual independence) upward. At each step, the deviance drop tells you whether adding an interaction term improves fit. The mosaic plot of the best model's residuals should show no pattern.
+\end{exampleblock}
+\end{frame}
+
+% ── 202 ──
+\begin{frame}{Model Selection for Log-Linear: Deviance Plot}
+\smark{202/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}
+    \item Plot deviance ($G^2$) vs.\ model complexity (df)
+    \item Good fit: $G^2 / \text{df} \approx 1$ (close to $\chi^2$ distribution)
+    \item Large $G^2$ relative to df = poor fit
+    \item AIC/BIC for formal selection
+    \item Visualize: bar chart of $G^2$ per model with significance threshold
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize R: \texttt{anova(m0, m1, m2)} compares nested log-linear models by deviance. \texttt{step()} automates forward/backward selection. The mosaic of the final model's residuals serves as the diagnostic --- all cells should be grey (no pattern).
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 203 ──
+\begin{frame}[fragile]{Model Comparison --- Code}\smark{203/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+# Fit hierarchy
+m0 <- loglm(~ A+B+C, ct3d)
+m1 <- loglm(~ A*B+C, ct3d)
+m2 <- loglm(~ A*B+A*C+B*C, ct3d)
+m3 <- loglm(~ A*B*C, ct3d)
+
+# Compare
+anova(m0, m1, m2, m3)
+
+# Visualize deviances
+devs <- c(m0$deviance, m1$deviance,
+          m2$deviance, m3$deviance)
+names <- c("Indep","A*B+C",
+  "All 2-way","Saturated")
+barplot(devs, names.arg=names,
+  col="#2166AC",
+  ylab="Deviance (G2)")
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+# Poisson GLMs with different formulas
+models = {
+    "Indep": "count ~ A + B + C",
+    "A*B+C": "count ~ A*B + C",
+    "All 2-way":
+        "count ~ A*B + A*C + B*C",
+    "Saturated": "count ~ A*B*C"}
+
+deviances = {}
+for name, formula in models.items():
+    m = smf.glm(formula, data=df,
+        family=sm.families.Poisson()
+        ).fit()
+    deviances[name] = m.deviance
+
+ax.bar(deviances.keys(),
+    deviances.values(),
+    color="#2166AC")
+ax.set_ylabel("Deviance (G²)")
+\end{lstlisting}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 204 ──
+\begin{frame}{Relative Risk and Risk Difference}
+\smark{204/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\centering\small
+\begin{tabular}{@{}lll@{}}
+    \toprule
+    \textbf{Measure} & \textbf{Formula} & \textbf{Interpretation} \\
+    \midrule
+    Risk (proportion) & $p = a/(a+b)$        & Probability of outcome \\
+    Risk Difference   & $p_1 - p_0$          & Absolute reduction \\
+    Relative Risk     & $p_1 / p_0$          & Multiplicative change \\
+    Odds Ratio        & $(a \cdot d)/(b \cdot c)$ & Odds multiplier \\
+    NNT               & $1 / |p_1 - p_0|$    & Number needed to treat \\
+    \bottomrule
+\end{tabular}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{exampleblock}{Data Insight}
+    \scriptsize OR $= 3.5$ sounds dramatic, but if the baseline risk is 1\%, treatment raises it to only 3.4\%. The absolute risk difference (2.4\%) and NNT (42) give a more honest picture. Always report both relative and absolute measures.
+\end{exampleblock}
+\vspace{0.1cm}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize Visualize risk difference with a \textbf{number needed to treat (NNT)} icon array: out of 100 patient icons, color the expected number who benefit from treatment. This makes the absolute effect tangible.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 205 ──
+\begin{frame}[fragile]{Risk Measures --- Code}\smark{205/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+library(epitools)
+
+# All measures from 2x2
+riskratio(ct)     # RR + CI
+oddsratio(ct)     # OR + CI
+riskratio.wald(ct)
+
+# Manual
+p1 <- a / (a + b)  # treatment
+p0 <- c / (c + d)  # control
+RD <- p1 - p0       # risk diff
+RR <- p1 / p0       # relative risk
+NNT <- 1 / abs(RD)  # NNT
+
+# Visualize: NNT icon array
+library(waffle)
+waffle(c(Benefit=round(1/NNT*100),
+  NoBenefit=100-round(1/NNT*100)),
+  rows=10)
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+# Manual computation
+p1 = a / (a + b)
+p0 = c / (c + d)
+RD = p1 - p0
+RR = p1 / p0
+OR = (a*d) / (b*c)
+NNT = 1 / abs(RD)
+
+# CI for OR (Woolf method)
+se_log_or = np.sqrt(
+    1/a + 1/b + 1/c + 1/d)
+ci_lo = np.exp(
+    np.log(OR) - 1.96*se_log_or)
+ci_hi = np.exp(
+    np.log(OR) + 1.96*se_log_or)
+
+print(f"RR={RR:.2f}, OR={OR:.2f}, "
+      f"RD={RD:.3f}, NNT={NNT:.0f}")
+\end{lstlisting}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 206 ──
+\begin{frame}{The \texttt{vcd} Package Ecosystem}
+\smark{206/300}
+\centering\small
+\begin{tabular}{@{}lll@{}}
+    \toprule
+    \textbf{Display} & \textbf{Function} & \textbf{Best For} \\
+    \midrule
+    Mosaic              & \texttt{mosaic()} + \texttt{shade}   & 2--4 way joint distribution \\
+    Association         & \texttt{assoc()}                      & Residual direction/magnitude \\
+    Sieve               & \texttt{sieve()}                      & Equal-area residual hatching \\
+    Fourfold            & \texttt{fourfoldplot()}               & $2 \times 2$ odds ratio \\
+    Doubledecker        & \texttt{doubledecker()}               & Conditional proportions \\
+    CD plot             & \texttt{cd\_plot()}                   & Continuous predictor $\times$ binary \\
+    Agreement           & \texttt{agreementplot()}              & Inter-rater reliability \\
+    Fluctuation         & \texttt{fluctuation()}                & Cell counts as size \\
+    Spine               & \texttt{spine()}                      & 1D proportional bar \\
+    \bottomrule
+\end{tabular}
+
+\vspace{0.3cm}
+\begin{exampleblock}{Data Insight}
+    \scriptsize The \texttt{vcd} package (Zeileis, Meyer, Hornik) is the most comprehensive categorical data visualization library in any language. Python has no equivalent; use R for publication-quality categorical displays.
+\end{exampleblock}
+\end{frame}
+
+% ── 207 ──
+\begin{frame}{Contingency Table Display Decision Guide}
+\smark{207/300}
+\centering\small
+\begin{tabular}{@{}lll@{}}
+    \toprule
+    \textbf{Table Type} & \textbf{Primary Display} & \textbf{Alternative} \\
+    \midrule
+    $2 \times 2$                  & Fourfold + OR forest      & Mosaic (shaded) \\
+    $r \times c$ (small)          & Mosaic + residual shading & Association plot \\
+    $r \times c$ (large)          & CA biplot                 & Heatmap + clustering \\
+    $2 \times 2 \times k$ (stratified)& Fourfold (paneled)   & CMH + conditional mosaic \\
+    Multi-way ($> 3$)             & Log-linear + mosaic       & Doubledecker \\
+    Rater agreement               & Agreement heatmap         & Weighted $\kappa$ bar \\
+    Continuous $\times$ binary    & CD plot                   & Logistic curve \\
+    Rating / ordinal              & Diverging stacked (M3.4)  & Cumulative CDF (M3.6) \\
+    \bottomrule
+\end{tabular}
+\end{frame}
+
+% ── 208 ──
+\begin{frame}{Common Mistakes with Advanced Tables}
+\smark{208/300}
+\centering\small
+\begin{tabular}{@{}ll@{}}
+    \toprule
+    \textbf{Mistake} & \textbf{Fix} \\
+    \midrule
+    OR reported without CI                  & Always: OR [CI\_lo, CI\_hi] \\
+    OR on log-scale axis not labeled        & Mark the axis as ``log scale'' \\
+    Fourfold without confidence rings       & Add \texttt{conf.level=0.95} \\
+    Log-linear without residual check       & Plot residuals for the best model \\
+    Unweighted $\kappa$ for ordinal data    & Use weighted $\kappa$ (quadratic) \\
+    CD plot with too few data points        & Bin into deciles first, or use logistic fit \\
+    Ignoring confounders in $2 \times 2$    & Stratify + CMH or conditional mosaic \\
+    \bottomrule
+\end{tabular}
+\end{frame}
+
+% ── 209 ──
+\begin{frame}{Three-Way and Higher Tables: Practical Limits}
+\smark{209/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}
+    \item 2-way: mosaic or heatmap (readable)
+    \item 3-way: conditional mosaic (\texttt{| z}) or faceted panels
+    \item 4-way: nested mosaics or CA/MCA
+    \item 5+ way: log-linear models with residual mosaics; rarely visualized directly
+    \item The human limit: $\sim$3 categorical variables simultaneously on one display
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize For 4+ way tables, don't try to show everything in one plot. Use log-linear model selection to identify the important interactions, then visualize only those 2-way or 3-way sub-tables with mosaics.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 210 ──
+\begin{frame}{Module 3.7 --- Key Takeaways}\smark{210/300}
+\begin{enumerate}
+    \item \textbf{Fourfold displays} are purpose-built for $2 \times 2$ tables and odds ratios.
+    \item \textbf{OR forest plots} compare stratified $2 \times 2$ tables across subgroups.
+    \item \textbf{Log-linear models} extend $\chi^2$ to multi-way tables; visualize residuals with mosaics.
+    \item \textbf{Doubledecker plots} show conditional proportions for multi-predictor binary outcomes.
+    \item \textbf{CD plots} visualize how a binary outcome varies along a continuous predictor.
+    \item \textbf{Agreement plots} with Cohen's $\kappa$ diagnose inter-rater reliability.
+\end{enumerate}
+\end{frame}
+
+% ── 211 ──
+\begin{frame}{}\smark{211/300}
+\centering\vspace{1.5cm}
+{\Large\textbf{Module 3.7 Complete}}\\[0.5cm]
+You now command the full \texttt{vcd} toolkit: fourfold, doubledecker, sieve, fluctuation, CD plots, and agreement displays --- plus log-linear model visualization for multi-way tables.\\[0.5cm]
+\textbf{Next:} Module 3.8 --- Categorical Data in Practice: Case Studies.
+\end{frame}
+
+% ── TRANSITION ──
+
+% ═══════════════════════════════════════════════════════
+%  MODULE 3.8 — Categorical Data in Practice: Case Studies
+% ── TRANSITION ──
+
+% ═══════════════════════════════════════════════════════
+\section{Module 3.8 --- Case Studies in Categorical Visualization}
+
+% ── 212 ──
+\begin{frame}{Module 3.8 --- Roadmap}\smark{212/300}
+\begin{enumerate}
+    \item Case Study 1: Clinical trial dashboard (mosaic + OR + NNT)
+    \item Case Study 2: Customer satisfaction survey (Likert + net + mean)
+    \item Case Study 3: Election and polling data (stacked + trend)
+    \item The 6-step categorical analysis workflow
+    \item Building multi-panel categorical dashboards
+    \item Publication-ready figure assembly
+    \item Common stakeholder questions and which chart answers them
+\end{enumerate}
+\end{frame}
+
+% ── 213 ──
+\begin{frame}{Case Study 1: Clinical Trial Dashboard}
+\smark{213/300}
+\centering
+\includegraphics[width=0.88\textwidth]{m3_8_clinical_dashboard.png}
+
+\vspace{0.1cm}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Four panels, one story: (A) mosaic shows treatment doubles the success proportion; (B) forest plot confirms the effect across all subgroups (all CIs exclude 1); (C) NNT icon array makes the absolute benefit tangible: 14 of 100 patients benefit; (D) three effect measures with CIs for the methods section.
+\end{exampleblock}
+\end{frame}
+
+% ── 214 ──
+\begin{frame}{Clinical Dashboard: Design Choices}
+\smark{214/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}
+    \item \textbf{Panel A} (mosaic): shows joint distribution + conditional proportions + sample sizes
+    \item \textbf{Panel B} (forest): subgroup analysis on log-OR scale --- heterogeneity visible at a glance
+    \item \textbf{Panel C} (NNT array): translates relative effect into absolute terms for clinicians
+    \item \textbf{Panel D} (effect CIs): RD, RR, and OR together for the statistics-literate reader
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize A single figure with 4 panels replaces 3 tables and a paragraph of text. Clinicians see the NNT. Statisticians see the OR forest. Reviewers see the CIs. Each audience finds what they need.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 215 ──
+\begin{frame}[fragile]{Clinical Dashboard --- Code Skeleton}\smark{215/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+library(patchwork)
+
+# A: Mosaic
+p_a <- vcd::mosaic(outcome ~ group,
+  data = trial, shade=TRUE,
+  return_grob=TRUE)
+
+# B: Forest
+p_b <- ggplot(subgroup_df,
+  aes(or, fct_reorder(subgroup, or)))+
+  geom_pointrange(aes(
+    xmin=ci_lo, xmax=ci_hi)) +
+  geom_vline(xintercept=1,
+    linetype="dashed") +
+  scale_x_log10()
+
+# C: NNT waffle
+p_c <- waffle(c(Benefit=14,
+  NoBenefit=86), rows=10)
+
+# D: Effect measures
+p_d <- ggplot(measures_df, ...) +
+  geom_pointrange(...)
+
+# Compose
+(p_a | p_b) / (p_c | p_d)
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+fig, axes = plt.subplots(2, 2,
+    figsize=(12, 9))
+
+# A: Mosaic (manual rectangles)
+draw_mosaic(axes[0,0], ct)
+
+# B: Forest plot
+draw_forest(axes[0,1],
+    subgroups, ors, cis)
+
+# C: NNT icon array
+draw_waffle(axes[1,0],
+    benefit=14, total=100)
+
+# D: Effect measures + CI
+draw_effect_ci(axes[1,1],
+    measures, values, cis)
+
+fig.suptitle("Clinical Trial",
+    fontweight="bold")
+plt.tight_layout()
+plt.savefig("clinical.png", dpi=300)
+\end{lstlisting}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 216 ──
+\begin{frame}{Case Study 2: Customer Satisfaction Survey}
+\smark{216/300}
+\centering
+\includegraphics[width=0.92\textwidth]{m3_8_survey_dashboard.png}
+
+\vspace{0.1cm}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Three views of the same data: (left) the full response distribution reveals that ``Value'' has the most disagreement; (center) net scores rank questions instantly --- ``Recommend'' tops at +80\%; (right) mean scores confirm the ranking numerically. The three-panel layout serves researchers, executives, and analysts simultaneously.
+\end{exampleblock}
+\end{frame}
+
+% ── 217 ──
+\begin{frame}{Survey Dashboard: Design Choices}
+\smark{217/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}
+    \item \textbf{Left panel}: diverging stacked bar shows the full distribution (Module 3.4)
+    \item \textbf{Center panel}: net score sorted by value for instant ranking
+    \item \textbf{Right panel}: mean score dot plot with neutral line at 3.0
+    \item Shared $y$-axis labels across panels for alignment
+    \item Color palette consistent: red=disagree, blue=agree throughout
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize For annual surveys, add a fourth panel: year-over-year trend (mean $\pm$ CI per item). This turns the dashboard into a longitudinal tracking tool. Use \texttt{patchwork} (R) or \texttt{gridspec} (Python) for layout.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 218 ──
+\begin{frame}{Case Study 3: Election and Polling Data}
+\smark{218/300}
+\centering
+\includegraphics[width=0.88\textwidth]{m3_8_election.png}
+
+\vspace{0.1cm}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Left: vote composition by region shows Party A dominates East; Party B dominates South. Right: polling trend with margin-of-error bands shows Party A gaining steadily while B declines. The ±2pp MoE band puts the trend in statistical context.
+\end{exampleblock}
+\end{frame}
+
+% ── 219 ──
+\begin{frame}{Election Visualization: Design Principles}
+\smark{219/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}
+    \item Use party-specific colors consistently (established conventions)
+    \item Always show margin of error on polling data
+    \item Stacked bars for composition; lines for trend
+    \item Avoid pie charts for vote share (3+ parties)
+    \item Waffle or parliament diagrams for seat allocation
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize For swing analysis: show the \textbf{change} (slope chart or arrow chart) rather than the absolute values. ``Party A gained +5pp in the South'' is more informative than two separate bars at 35\% and 40\%.
+\end{alertblock}
+\vspace{0.1cm}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Parliament diagrams (semicircular seat layouts) are effective for showing coalition possibilities. R: \texttt{ggparliament}; Python: manual arc with \texttt{matplotlib.patches.Wedge}.
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 220 ──
+\begin{frame}[fragile]{Election Plots --- Code}\smark{220/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+# Stacked bar by region
+ggplot(votes,
+  aes(region, pct, fill=party)) +
+  geom_col(position="stack") +
+  scale_fill_manual(
+    values=c("#2166AC","#B2182B",
+             "#1B9E77")) +
+  theme_minimal()
+
+# Polling trend + MoE ribbon
+ggplot(polls,
+  aes(date, pct, color=party)) +
+  geom_line(linewidth=1.5) +
+  geom_ribbon(aes(
+    ymin=pct-moe, ymax=pct+moe,
+    fill=party), alpha=0.1,
+    color=NA) +
+  theme_minimal()
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+# Stacked bar
+bottom = np.zeros(len(regions))
+for party, vals, c in zip(
+    parties, [pa, pb, pc], colors):
+    ax.bar(regions, vals,
+        bottom=bottom, color=c,
+        label=party, edgecolor="white")
+    bottom += vals
+
+# Trend + MoE
+for trend, label, c in zip(
+    trends, parties, colors):
+    ax.plot(months, trend, "o-",
+        color=c, linewidth=2,
+        label=label)
+    ax.fill_between(months,
+        [t-moe for t in trend],
+        [t+moe for t in trend],
+        alpha=0.1, color=c)
+\end{lstlisting}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 221 ──
+\begin{frame}{The 6-Step Categorical Analysis Workflow}
+\smark{221/300}
+\centering
+\includegraphics[width=0.48\textwidth]{m3_8_workflow.png}
+
+\vspace{0.2cm}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{enumerate}
+    \item \textbf{Cross-tabulate}: \texttt{table()} / \texttt{pd.crosstab()}
+    \item \textbf{Test association}: $\chi^2$ or Fisher's exact
+    \item \textbf{Effect size}: Cramér's $V$, OR, RR
+    \item \textbf{Visualize}: mosaic + residual shading
+    \item \textbf{Decompose}: residuals, contributions, CA
+    \item \textbf{Report}: figure + caption + effect size
+\end{enumerate}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize Steps 1--3 are computation; steps 4--6 are communication. Most analysts stop at step 2 (``$\chi^2 = 47.3$, $p < 0.001$''). The visualization (steps 4--6) is where the insight actually lives.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 222 ──
+\begin{frame}{Multi-Panel Dashboard Layouts}
+\smark{222/300}
+\centering\small
+\begin{tabular}{@{}llll@{}}
+    \toprule
+    \textbf{Domain} & \textbf{Panel 1} & \textbf{Panel 2} & \textbf{Panel 3} \\
+    \midrule
+    Clinical trial & Mosaic (Trt$\times$Out) & OR forest (subgroups) & NNT icon array \\
+    Survey         & Diverging stacked      & Net score (sorted)     & Mean dot plot \\
+    Election       & Stacked bar (regions)  & Trend + MoE            & Seat allocation \\
+    Market research& Waffle (brand share)   & Likert (attributes)    & NPS gauge \\
+    Ecology        & Mosaic (habitat$\times$sp)& CA biplot            & Stacked bar (site) \\
+    Epidemiology   & Fourfold (exposure$\times$out)& Forest (strata) & Risk measures \\
+    \bottomrule
+\end{tabular}
+
+\vspace{0.3cm}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Each row is a complete multi-panel figure for a publication or report. Three panels is the sweet spot: one shows the data, one shows the analysis, one shows the effect size or summary.
+\end{exampleblock}
+\end{frame}
+
+% ── 223 ──
+\begin{frame}[fragile]{Multi-Panel Assembly --- Code}\smark{223/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+library(patchwork)
+
+# Compose panels
+(p_mosaic + p_forest) /
+  (p_nnt + p_effect) +
+  plot_annotation(
+    title="Clinical Trial Results",
+    tag_levels="A")
+
+# Save at publication size
+ggsave("fig1_clinical.pdf",
+  width=10, height=8, dpi=300)
+
+# cowplot alternative
+library(cowplot)
+plot_grid(p1, p2, p3, p4,
+  labels="AUTO", ncol=2)
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+fig, axes = plt.subplots(2, 2,
+    figsize=(12, 9))
+# Draw each panel on its axis
+draw_panel_a(axes[0,0])
+draw_panel_b(axes[0,1])
+draw_panel_c(axes[1,0])
+draw_panel_d(axes[1,1])
+
+# Auto-label panels A-D
+for ax, label in zip(
+    axes.flat, "ABCD"):
+    ax.text(-0.1, 1.05, label,
+        transform=ax.transAxes,
+        fontsize=14, fontweight="bold")
+
+fig.savefig("fig1.png", dpi=300,
+    bbox_inches="tight")
+\end{lstlisting}
+\vspace{0.1cm}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize \texttt{patchwork} (R) is the gold standard for multi-panel layout. Python: use \texttt{plt.subplots()} with \texttt{gridspec\_kw} for unequal panel sizes. Always auto-label panels with A, B, C, D.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 224 ──
+\begin{frame}{Publication Figure Checklist}
+\smark{224/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+    \textbf{Required elements:}
+    \begin{itemize}
+        \item Panel labels (A, B, C, D) in bold
+        \item Axis labels with units
+        \item Legend (or direct labels)
+        \item Sample sizes annotated
+        \item Effect size + CI in caption
+        \item Consistent color palette across panels
+    \end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+    \textbf{Technical specs:}
+    \begin{itemize}
+        \item 300 DPI minimum for print
+        \item Width: single-column (3.5''), double-column (7'')
+        \item Font size $\geq 8$pt after scaling
+        \item Vector format (PDF/EPS) preferred
+        \item Colorblind-safe palette
+        \item White background (no grey panels)
+    \end{itemize}
+\end{column}
+\end{columns}
+
+\vspace{0.2cm}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize R: \texttt{ggsave("fig.pdf", width=7, height=5, dpi=300)}. Python: \texttt{fig.savefig("fig.pdf", dpi=300, bbox\_inches="tight")}. Always save both PDF (for the journal) and PNG (for presentations).
+\end{alertblock}
+\end{frame}
+
+% ── 225 ──
+\begin{frame}{Stakeholder Questions $\to$ Chart Answers}
+\smark{225/300}
+\centering\scriptsize
+\begin{tabular}{@{}ll@{}}
+    \toprule
+    \textbf{Question} & \textbf{Chart} \\
+    \midrule
+    ``How many are in each category?''            & Bar chart (sorted) \\
+    ``What's the breakdown?''                     & Stacked bar or waffle \\
+    ``Is there an association?''                   & Mosaic + residual shading \\
+    ``How strong is the effect?''                  & OR forest plot or Cramér's $V$ bar \\
+    ``Which subgroups differ?''                    & Subgroup forest plot or faceted mosaic \\
+    ``How satisfied are customers?''               & Diverging Likert + net score \\
+    ``How do ratings compare across products?''    & Diverging stacked bar (Module 3.6) \\
+    ``Which categories co-occur?''                 & CA biplot or alluvial \\
+    ``How do patients flow through treatment?''    & Sankey or alluvial diagram \\
+    ``How many need treatment to benefit one?''    & NNT icon array \\
+    ``Do two raters agree?''                       & Agreement heatmap + $\kappa$ \\
+    ``How has the vote changed?''                  & Slope chart or bump chart \\
+    \bottomrule
+\end{tabular}
+\end{frame}
+
+% ── 226 ──
+\begin{frame}{Accessibility for Categorical Charts}
+\smark{226/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}
+    \item \textbf{Colorblind safety}: use palettes from \texttt{viridis} or \texttt{okabe\_ito}; never red-green only
+    \item \textbf{Texture}: sieve diagrams use hatching instead of color
+    \item \textbf{Direct labels}: reduce reliance on color legend
+    \item \textbf{Pattern fills}: \texttt{ggpattern} (R) adds stripes/dots to bars
+    \item \textbf{Alt text}: describe the pattern (``1st class survived more'')
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize R: \texttt{colorBlindness::cvdPlot(p)} simulates how your plot looks to colorblind viewers. Python: use \texttt{colorspacious} to simulate CVD. Test every figure before submission.
+\end{alertblock}
+\vspace{0.1cm}
+\begin{exampleblock}{Data Insight}
+    \scriptsize 8\% of men have color vision deficiency. In a room of 25 male scientists, 2 will struggle with red-green encoded charts. Direct labeling eliminates this barrier entirely.
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 227 ──
+\begin{frame}[fragile]{Colorblind-Safe Palettes --- Code}\smark{227/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+# Okabe-Ito palette
+library(colorblindr)
+pal_oi <- palette_OkabeIto
+
+# Apply to ggplot
+p + scale_fill_OkabeIto()
+
+# Viridis (sequential)
+p + scale_fill_viridis_d()
+
+# Check CVD simulation
+colorblindr::cvd_grid(p)
+
+# ggpattern for texture
+library(ggpattern)
+ggplot(df, aes(class,
+    fill=survived)) +
+  geom_bar_pattern(
+    pattern="stripe",
+    pattern_fill="white")
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+# Okabe-Ito
+oi = ["#E69F00","#56B4E9","#009E73",
+    "#F0E442","#0072B2","#D55E00",
+    "#CC79A7","#999999"]
+
+# Viridis
+from matplotlib import cm
+colors = cm.viridis(
+    np.linspace(0, 1, n_cats))
+
+# CVD simulation
+# pip install colorspacious
+from colorspacious import cspace_convert
+# Simulate deuteranopia
+img_cvd = cspace_convert(img,
+    "sRGB1", "sRGB1",
+    {"cvd_type":"deuteranomaly",
+     "severity":100})
+\end{lstlisting}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 228 ──
+\begin{frame}{Categorical Visualization Anti-Pattern Summary}
+\smark{228/300}
+\centering\small
+\begin{tabular}{@{}ll@{}}
+    \toprule
+    \textbf{Anti-Pattern} & \textbf{Better Alternative} \\
+    \midrule
+    Pie chart for 5+ categories                 & Waffle, stacked bar, or treemap \\
+    3D pie or 3D bar                            & Flat 2D always \\
+    Alphabetical category order (nominal)       & Sort by value \\
+    Bar chart for association                    & Mosaic with residual shading \\
+    $\chi^2$ without effect size                & Add Cramér's $V$ or OR \\
+    Mean $\pm$ SD for Likert                    & Diverging stacked bar + median \\
+    Venn diagram for 4+ sets                    & UpSet plot \\
+    Red-green only encoding                     & Okabe-Ito or direct labels \\
+    Single summary number for ratings           & Full distribution + summary \\
+    Spaghetti alluvial (10+ categories)         & Aggregate small flows to ``Other'' \\
+    \bottomrule
+\end{tabular}
+\end{frame}
+
+% ── 229 ──
+\begin{frame}{Exporting Categorical Figures}
+\smark{229/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+    \textbf{Static (publication):}
+    \begin{itemize}
+        \item PDF/EPS: vector, infinite resolution
+        \item PNG: 300 DPI, web and slides
+        \item TIFF: some journals require it
+        \item SVG: web embedding
+    \end{itemize}
+    \vspace{0.2cm}
+    \textbf{Interactive (web/dashboard):}
+    \begin{itemize}
+        \item HTML via \texttt{plotly} / \texttt{htmlwidgets}
+        \item Shiny app (R) / Dash (Python)
+        \item Observable / D3.js
+    \end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize Interactive mosaics, alluvials, and Sankey diagrams are far more effective than static versions because the user can hover for cell details. Use \texttt{plotly::ggplotly()} to instantly convert ggplot2 static figures to interactive. In Python: \texttt{plotly.express} or \texttt{altair}.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 230 ──
+\begin{frame}{Reproducibility for Categorical Figures}
+\smark{230/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}
+    \item Script produces the figure from raw data
+    \item \texttt{set.seed()} / \texttt{np.random.seed()} for any simulation
+    \item Pin package versions: \texttt{renv::snapshot()} / \texttt{pip freeze}
+    \item \texttt{ggsave()} / \texttt{savefig()} with explicit dimensions and DPI
+    \item Store the cross-tabulation alongside the figure
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{exampleblock}{Data Insight}
+    \scriptsize A reproducible categorical figure pipeline: \texttt{data/} $\to$ \texttt{scripts/02\_categorical.R} $\to$ \texttt{figures/fig3\_mosaic.pdf}. The script reads raw data, computes the cross-tab, runs the $\chi^2$ test, builds the mosaic, and saves the figure --- all in one executable file.
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 231 ──
+\begin{frame}{Module 3.8 --- Key Takeaways}\smark{231/300}
+\begin{enumerate}
+    \item \textbf{Multi-panel dashboards} combine mosaic + forest + NNT + effect CIs for complete reporting.
+    \item \textbf{Survey dashboards}: diverging bar + net score + mean dot plot serve all audiences.
+    \end{enumerate}
+\end{frame}
+% ── 232b (renumber to fill) ──
+\begin{frame}{Domain-Specific Categorical Palettes}
+\smark{232/300}
+\centering\small
+\begin{tabular}{@{}lll@{}}
+    \toprule
+    \textbf{Domain} & \textbf{Convention} & \textbf{Source} \\
+    \midrule
+    Politics (US)       & Blue=Democrat, Red=Republican      & Media convention \\
+    Traffic / risk      & Green=safe, Yellow=caution, Red=danger & ISO standard \\
+    Gender (traditional)& Pink/purple vs.\ blue              & Avoid; use shape instead \\
+    Medical outcomes    & Green=alive, Red=dead              & Clinical convention \\
+    Finance             & Green=profit, Red=loss              & Market convention \\
+    Likert / sentiment  & Red=negative, Blue=positive         & RdBu diverging \\
+    \bottomrule
+\end{tabular}
+
+\vspace{0.3cm}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize Violating domain conventions confuses readers. If your audience expects red=Republican, don't use red for Democrats. When conventions conflict with accessibility (red-green), add secondary encoding (shape, texture, labels).
+\end{alertblock}
+\end{frame}
+
+\begin{frame}{Caption Writing for Categorical Figures}
+\smark{233/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+    \textbf{Structure:}
+    \begin{itemize}
+        \item \textbf{Line 1}: Claim (``Treatment doubles survival odds'')
+        \item \textbf{Line 2}: What the display shows (``Mosaic plot of treatment group $\times$ survival'')
+        \item \textbf{Line 3}: Key numbers ($\chi^2(1) = 28.4$, $p < 0.001$, $V = 0.31$, OR $= 3.5$ [2.3, 5.3])
+        \item \textbf{Line 4}: $N$ and data source
+    \end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Good caption: ``First-class passengers survived at higher rates than third-class. Residual-shaded mosaic plot of class $\times$ survival ($N = 891$). $\chi^2(2) = 102.9$, $p < 0.001$, $V = 0.34$. Color: blue = more than expected; red = fewer. Data: RMS Titanic passenger manifest.''
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Interactive vs.\ Static: When to Choose}
+\smark{234/300}
+\centering\small
+\begin{tabular}{@{}lll@{}}
+    \toprule
+    \textbf{Context} & \textbf{Format} & \textbf{Reason} \\
+    \midrule
+    Journal paper       & Static (PDF/PNG)     & Reproducible, printable \\
+    Conference talk     & Static (PNG)          & Reliable projection \\
+    Web dashboard       & Interactive (plotly)  & Hover details, drill-down \\
+    Internal report     & Static + link to app  & Best of both worlds \\
+    Teaching            & Interactive (Shiny)   & Student exploration \\
+    Social media        & Static (PNG) or GIF   & Maximum compatibility \\
+    \bottomrule
+\end{tabular}
+
+\vspace{0.3cm}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize Interactive mosaics let the user hover over cells to see counts, proportions, and residuals --- far richer than static. But interactive figures cannot be printed or embedded in PDF manuscripts. Always provide both.
+\end{alertblock}
+\end{frame}
+
+\begin{frame}[fragile]{Interactive Mosaic --- Code}\smark{235/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+# plotly conversion
+library(plotly)
+p <- ggplot(titanic,
+  aes(class, fill=survived)) +
+  geom_bar(position="fill")
+ggplotly(p)
+
+# Shiny app scaffold
+library(shiny)
+ui <- fluidPage(
+  selectInput("var",
+    "Split by:", c("class","sex")),
+  plotOutput("mosaic"))
+server <- function(input, output) {
+  output$mosaic <- renderPlot({
+    vcd::mosaic(
+      as.formula(paste(
+        "survived ~", input$var)),
+      data=titanic, shade=TRUE)
+  })
+}
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+# Plotly interactive
+import plotly.express as px
+
+fig = px.sunburst(titanic,
+    path=["class","sex","survived"],
+    title="Titanic Hierarchy")
+fig.show()
+
+# Dash app scaffold
+import dash
+from dash import dcc, html
+app = dash.Dash()
+app.layout = html.Div([
+    dcc.Dropdown(
+        options=["class","sex"],
+        value="class", id="var"),
+    dcc.Graph(id="mosaic")])
+
+@app.callback(...)
+def update(var):
+    fig = px.sunburst(titanic,
+        path=[var, "survived"])
+    return fig
+\end{lstlisting}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Categorical Data Ethics}
+\smark{236/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}
+    \item \textbf{Category construction is subjective}: how you bin ``age'' or define ``race'' shapes findings
+    \item \textbf{Aggregation hides disparities}: ``overall'' rates can mask group-specific harms (Simpson's paradox)
+    \item \textbf{Small-cell suppression}: cells with $n < 5$ may identify individuals --- suppress or aggregate
+    \item \textbf{Framing effects}: ``90\% survived'' vs.\ ``10\% died'' are the same data, different response
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize Always show disaggregated data when possible (conditional mosaics by subgroup). If aggregation is necessary (privacy), state what was aggregated and why. Avoid ``Other'' categories that lump dissimilar groups.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Large-Scale Categorical Data: Strategies}
+\smark{237/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}
+    \item 100+ categories: aggregate into top-$k$ + ``Other''
+    \item 10+ variables: use MCA (Module 3.5) instead of pairwise mosaics
+    \item Millions of rows: pre-aggregate into contingency tables before plotting
+    \item Sparse tables: merge rare categories or use Fisher's exact
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{exampleblock}{Data Insight}
+    \scriptsize For text data (1000+ unique words as categories), CA on the document-term matrix is the standard approach. The biplot shows which documents cluster near which terms --- a visual topic model (latent semantic analysis).
+\end{exampleblock}
+\vspace{0.1cm}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize R: \texttt{forcats::fct\_lump\_n(var, n=10)} keeps the top 10 categories and lumps the rest into ``Other.'' Python: \texttt{df["var"].where(df["var"].isin(top10), "Other")}.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Categorical $\to$ Continuous and Vice Versa}
+\smark{238/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+    \textbf{Continuous $\to$ categorical:}
+    \begin{itemize}
+        \item Binning: \texttt{cut()} / \texttt{pd.cut()}
+        \item Quantile binning: equal-frequency groups
+        \item Loss of information: avoid when possible
+        \item Use: when the relationship is non-monotonic or for stratified analysis
+    \end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+    \textbf{Categorical $\to$ continuous:}
+    \begin{itemize}
+        \item Dummy coding: \texttt{model.matrix()} / \texttt{pd.get\_dummies()}
+        \item Effect coding: centered contrasts
+        \item For MCA/CA: indicator matrix is the input
+    \end{itemize}
+    \vspace{0.1cm}
+    \begin{alertblock}{Pro-Tip}
+        \scriptsize Binning continuous data for visualization is acceptable (e.g., age groups in a mosaic). Binning for modeling is usually harmful --- it discards information. Use the continuous variable in the model but the binned version in the exploratory display.
+    \end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+
+
+% ── 241 ──
+\begin{frame}{Module 3.8 --- Key Takeaways}\smark{239/300}
+\begin{enumerate}
+    \item \textbf{Multi-panel dashboards} combine mosaic + forest + NNT + effect CIs for complete reporting.
+    \item \textbf{Survey dashboards}: diverging bar + net score + mean dot plot serve all audiences.
+    \item \textbf{The 6-step workflow}: cross-tabulate $\to$ test $\to$ effect size $\to$ visualize $\to$ decompose $\to$ report.
+    \item \textbf{Accessibility}: colorblind-safe palettes, direct labels, pattern fills.
+    \item \textbf{Caption = claim + display + statistics + N + source.}
+    \item \textbf{Provide both interactive and static} versions for maximum reach.
+\end{enumerate}
+\end{frame}
+
+% ── TRANSITION ──
+\begin{frame}{}\smark{240/300}
+\centering\vspace{1.5cm}
+{\Large\textbf{Module 3.8 Complete}}\\[0.5cm]
+You can now build publication-ready multi-panel categorical dashboards for clinical trials, surveys, and election data --- with proper accessibility, reproducibility, and stakeholder-matched chart selection.\\[0.5cm]
+\textbf{Next:} Module 3.9 --- Text as Categorical Data.
+\end{frame}
+
+% ═══════════════════════════════════════════════════════
+%  MODULE 3.9+ — Append here
+% ── TRANSITION ──
+\begin{frame}{}\smark{241/300}
+\centering\vspace{1.5cm}
+{\Large\textbf{Module 3.8 Complete}}\\[0.5cm]
+You can now build publication-ready multi-panel categorical dashboards for clinical trials, surveys, and election data --- with proper accessibility, reproducibility, and stakeholder-matched chart selection.\\[0.5cm]
+\textbf{Next:} Module 3.9 --- Text as Categorical Data.
+\end{frame}
+
+% ═══════════════════════════════════════════════════════
+
+% ═══════════════════════════════════════════════════════
+%  MODULE 3.9 — Text as Categorical Data: Word Frequencies, Topics, Sentiment
+% ═══════════════════════════════════════════════════════
+\section{Module 3.9 --- Text as Categorical Data}
+
+% ── 242 ──
+\begin{frame}{Module 3.9 --- Roadmap}\smark{242/300}
+\begin{enumerate}
+    \item Text tokens as categorical variables
+    \item Word frequency bar charts (sorted, top-$k$)
+    \item Word clouds: appeal vs.\ accuracy
+    \item Zipf's law and the long tail
+    \item TF-IDF: comparing corpora
+    \item Document-term matrices and heatmaps
+    \item Topic models: visualizing LDA output
+    \item Sentiment analysis displays
+\end{enumerate}
+\end{frame}
+
+% ── 243 ──
+\begin{frame}{Text Tokens as Categorical Variables}
+\smark{243/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}
+    \item Every unique word (token) is a \textbf{nominal category}
+    \item A document is a bag of categorical observations
+    \item The document-term matrix is a \textbf{contingency table}: documents $\times$ words
+    \item All categorical tools apply: frequency bars, mosaics, CA, $\chi^2$
+    \item Vocabulary sizes: 5{,}000--50{,}000 unique categories
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{exampleblock}{Data Insight}
+    \scriptsize A corpus of 1{,}000 documents with 10{,}000 unique words produces a $1{,}000 \times 10{,}000$ contingency table --- extremely sparse. Standard categorical tools (mosaic, $\chi^2$) break down. Dimension reduction (CA $=$ LSA, LDA) becomes essential.
+\end{exampleblock}
+\vspace{0.1cm}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize Pre-processing matters: lowercasing, stemming, stop-word removal, and minimum document frequency thresholds shape the ``categories'' before any visualization.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 244 ──
+\begin{frame}{Word Frequency Bar Chart}
+\smark{244/300}
+\centering
+\includegraphics[width=0.62\textwidth]{m3_9_word_freq.png}
+
+\vspace{0.2cm}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{itemize}
+    \item The most fundamental text visualization
+    \item Sorted horizontally (longest bar at top or bottom)
+    \item Show top-$k$ terms (15--25 is typical)
+    \item Remove stop words first (``the'', ``and'', ``of'')
+    \item Apply after stemming or lemmatization
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize Horizontal bars with text on the left are the gold standard for word frequencies. Vertical bars force rotated labels. Direct-label each bar to eliminate the $x$-axis entirely.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 245 ──
+\begin{frame}[fragile]{Word Frequency --- Code}\smark{245/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+library(tidytext)
+library(dplyr)
+
+# Tokenize + count
+word_counts <- corpus |>
+  unnest_tokens(word, text) |>
+  anti_join(stop_words) |>
+  count(word, sort=TRUE) |>
+  slice_head(n=20)
+
+ggplot(word_counts,
+  aes(n, fct_reorder(word, n))) +
+  geom_col(fill="#2166AC") +
+  geom_text(aes(label=n),
+    hjust=-0.2, size=3) +
+  labs(x="Frequency", y=NULL) +
+  theme_minimal()
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+from collections import Counter
+from sklearn.feature_extraction\
+    .text import CountVectorizer
+
+# Simple approach
+words = " ".join(corpus).split()
+counts = Counter(words)\
+    .most_common(20)
+
+# sklearn approach
+vec = CountVectorizer(
+    stop_words="english",
+    max_features=20)
+X = vec.fit_transform(corpus)
+freqs = X.sum(axis=0).A1
+terms = vec.get_feature_names_out()
+
+ax.barh(terms, freqs, color="#2166AC")
+\end{lstlisting}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 246 ──
+\begin{frame}{Word Clouds: Appeal vs.\ Accuracy}
+\smark{246/300}
+\centering
+\includegraphics[width=0.62\textwidth]{m3_9_wordcloud.png}
+
+\vspace{0.2cm}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{itemize}
+    \item Word size $\propto$ frequency (area encoding)
+    \item High aesthetic appeal; low analytical precision
+    \item \textbf{Cannot} compare exact frequencies between words
+    \item Position is essentially random
+    \item Useful for: engagement, brainstorming, informal exploration
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize Word clouds are the ``pie chart of text analysis'' --- popular but imprecise. For any comparison task, use the frequency bar chart. For presentations to non-technical audiences, the word cloud is acceptable as an \emph{attention-getter}, followed by the bar chart for analysis.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 247 ──
+\begin{frame}[fragile]{Word Cloud --- Code}\smark{247/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+library(wordcloud2)
+
+# Basic word cloud
+wordcloud2(word_counts,
+  size=0.8,
+  color="random-dark",
+  backgroundColor="white")
+
+# ggwordcloud (ggplot2-based)
+library(ggwordcloud)
+ggplot(word_counts,
+  aes(label=word, size=n,
+      color=n)) +
+  geom_text_wordcloud_area() +
+  scale_size_area(max_size=20) +
+  scale_color_viridis_c() +
+  theme_minimal()
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+from wordcloud import WordCloud
+
+text = " ".join(corpus)
+wc = WordCloud(
+    width=800, height=400,
+    background_color="white",
+    max_words=100,
+    colormap="viridis",
+    stopwords=STOPWORDS)
+wc.generate(text)
+
+fig, ax = plt.subplots(figsize=(8,4))
+ax.imshow(wc, interpolation="bilinear")
+ax.axis("off")
+
+# From frequency dict
+wc.generate_from_frequencies(
+    word_freq_dict)
+\end{lstlisting}
+\vspace{0.1cm}
+\begin{exampleblock}{Data Insight}
+    \scriptsize \texttt{wordcloud2} (R) produces interactive HTML; \texttt{ggwordcloud} produces static ggplot2. Python's \texttt{wordcloud} package is the standard. Both accept either raw text or pre-computed frequency dicts.
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 248 ──
+\begin{frame}{Zipf's Law and the Long Tail}
+\smark{248/300}
+\centering
+\includegraphics[width=0.55\textwidth]{m3_9_zipf.png}
+
+\vspace{0.2cm}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{itemize}
+    \item $\text{frequency} \propto 1/\text{rank}^s$ (Zipf, 1935)
+    \item Log-log plot: straight line with slope $\approx -1$
+    \item A few words dominate; most words are rare
+    \item Practical implication: the top 100 words cover $\sim$50\% of tokens; the bottom 10{,}000 each appear once
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Zipf's law means text data is inherently sparse. Visualization must focus on the informative middle: stop words (top) are too common; hapax legomena (bottom) are too rare. TF-IDF weights handle this automatically.
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 249 ──
+\begin{frame}[fragile]{Zipf's Law --- Code}\smark{249/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+library(tidytext)
+
+# Compute rank-frequency
+zipf_df <- corpus |>
+  unnest_tokens(word, text) |>
+  count(word, sort=TRUE) |>
+  mutate(rank = row_number())
+
+ggplot(zipf_df, aes(rank, n)) +
+  geom_point(size=0.5,
+    color="#2166AC", alpha=0.5) +
+  geom_abline(slope=-1,
+    intercept=log10(max(zipf_df$n)),
+    linetype="dashed",
+    color="#B2182B") +
+  scale_x_log10() + scale_y_log10()+
+  labs(x="Rank", y="Frequency") +
+  theme_minimal()
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+from collections import Counter
+
+words = " ".join(corpus).lower()\
+    .split()
+counts = Counter(words)
+freqs = sorted(counts.values(),
+    reverse=True)
+ranks = range(1, len(freqs)+1)
+
+ax.loglog(ranks, freqs, "o",
+    markersize=2, color="#2166AC",
+    alpha=0.5)
+# Reference line: 1/rank
+ax.loglog(ranks,
+    [freqs[0]/r for r in ranks],
+    "--", color="#B2182B",
+    label="1/rank")
+ax.set_xlabel("Rank (log)")
+ax.set_ylabel("Frequency (log)")
+ax.legend()
+\end{lstlisting}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 250 ──
+\begin{frame}{TF-IDF: Comparing Corpora}
+\smark{250/300}
+\centering
+\includegraphics[width=0.68\textwidth]{m3_9_tfidf.png}
+
+\vspace{0.2cm}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{itemize}
+    \item TF = term frequency (within document)
+    \item IDF = inverse document frequency (across corpus)
+    \item TF-IDF = TF $\times$ IDF: upweights distinctive terms
+    \item Dodged bar chart: compare top TF-IDF terms between corpora
+    \item Reveals what makes each corpus \textbf{unique}
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{exampleblock}{Data Insight}
+    \scriptsize ML corpus is defined by ``neural,'' ``network,'' ``gradient'' --- these terms have high TF-IDF because they are frequent in ML but rare in statistics. Conversely, ``p-value,'' ``hypothesis,'' and ``ANOVA'' define the statistics corpus.
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 251 ──
+\begin{frame}[fragile]{TF-IDF --- Code}\smark{251/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+library(tidytext)
+
+tfidf <- corpus |>
+  unnest_tokens(word, text) |>
+  count(document, word) |>
+  bind_tf_idf(word, document, n)
+
+# Top TF-IDF per document/corpus
+top_tfidf <- tfidf |>
+  group_by(document) |>
+  slice_max(tf_idf, n=10)
+
+ggplot(top_tfidf,
+  aes(tf_idf,
+    fct_reorder(word, tf_idf),
+    fill=document)) +
+  geom_col(show.legend=FALSE) +
+  facet_wrap(~document,
+    scales="free_y") +
+  theme_minimal()
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+from sklearn.feature_extraction\
+    .text import TfidfVectorizer
+
+tfidf = TfidfVectorizer(
+    stop_words="english",
+    max_features=1000)
+X = tfidf.fit_transform(corpus)
+
+# Top terms per document
+feature_names = \
+    tfidf.get_feature_names_out()
+for doc_idx in range(X.shape[0]):
+    row = X[doc_idx].toarray()[0]
+    top_idx = row.argsort()[-10:][::-1]
+    top_terms = [(feature_names[i],
+        row[i]) for i in top_idx]
+
+# Dodged bar
+ax.barh(y+0.2, scores_ml, 0.35,
+    color="#2166AC", label="ML")
+ax.barh(y-0.2, scores_stats, 0.35,
+    color="#D95F02", label="Stats")
+\end{lstlisting}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 252 ──
+\begin{frame}{Document-Term Matrix Heatmap}
+\smark{252/300}
+\centering
+\includegraphics[width=0.68\textwidth]{m3_9_doc_term.png}
+
+\vspace{0.2cm}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{itemize}
+    \item Rows = documents; columns = terms
+    \item Cell color $\propto$ term frequency
+    \item Shows which terms define each document
+    \item Useful for small corpora ($< 20$ docs, $< 30$ terms)
+    \item For larger corpora: use CA biplot instead
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Doc 3 (Bayesian) is defined by ``prior'' (22 occurrences). Doc 4 (Data Viz) is defined by ``plot'' (25) and ``color'' (18). The heatmap identifies the signature terms for each document at a glance.
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 253 ──
+\begin{frame}[fragile]{Document-Term Heatmap --- Code}\smark{253/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+library(tidytext)
+
+# Create DTM
+dtm <- corpus |>
+  unnest_tokens(word, text) |>
+  count(document, word) |>
+  cast_dtm(document, word, n)
+
+# As matrix for heatmap
+dtm_mat <- as.matrix(dtm)
+
+# Select top terms
+top_terms <- colSums(dtm_mat) |>
+  sort(decreasing=TRUE) |>
+  head(15) |> names()
+
+# Heatmap
+pheatmap::pheatmap(
+  dtm_mat[, top_terms],
+  scale="none",
+  color=colorRampPalette(
+    c("white","#B2182B"))(100))
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+from sklearn.feature_extraction\
+    .text import CountVectorizer
+
+vec = CountVectorizer(
+    stop_words="english",
+    max_features=15)
+X = vec.fit_transform(corpus)
+terms = vec.get_feature_names_out()
+
+# Heatmap
+sns.heatmap(
+    pd.DataFrame(X.toarray(),
+        index=doc_names,
+        columns=terms),
+    annot=True, fmt="d",
+    cmap="YlOrRd",
+    linewidths=0.5)
+\end{lstlisting}
+\vspace{0.1cm}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize Add \texttt{cluster\_rows=TRUE} and \texttt{cluster\_cols=TRUE} (in \texttt{pheatmap}) or use \texttt{sns.clustermap()} to reorder both axes by similarity. Documents with similar term profiles cluster together.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 254 ──
+\begin{frame}{Topic Models: Visualizing LDA Output}
+\smark{254/300}
+\centering
+\includegraphics[width=0.88\textwidth]{m3_9_topics.png}
+
+\vspace{0.2cm}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Three topics emerged: Regression (blue), Bayesian (red), Visualization (green). Each topic's bar chart shows its defining terms and their probabilities. ``Prior'' and ``posterior'' dominate Topic 2; ``plot'' and ``color'' dominate Topic 3. The topic-word bars are the primary output of any topic model.
+\end{exampleblock}
+\end{frame}
+
+% ── 255 ──
+\begin{frame}[fragile]{LDA Topic Visualization --- Code}\smark{255/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+library(topicmodels)
+library(tidytext)
+
+# Fit LDA
+lda <- LDA(dtm, k=3,
+  control=list(seed=42))
+
+# Extract topic-word probabilities
+topics <- tidy(lda,
+  matrix="beta")
+
+# Top terms per topic
+top_terms <- topics |>
+  group_by(topic) |>
+  slice_max(beta, n=10)
+
+# Faceted bar chart
+ggplot(top_terms,
+  aes(beta, fct_reorder(
+    term, beta), fill=factor(topic)))+
+  geom_col(show.legend=FALSE) +
+  facet_wrap(~topic,
+    scales="free_y") +
+  theme_minimal()
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+from sklearn.decomposition \
+    import LatentDirichletAllocation
+
+lda = LatentDirichletAllocation(
+    n_components=3,
+    random_state=42)
+lda.fit(X_tfidf)
+
+# Topic-word distributions
+for topic_idx, topic in enumerate(
+    lda.components_):
+    top_idx = topic.argsort()[-10:]
+    top_terms = [(feature_names[i],
+        topic[i]) for i in top_idx]
+
+# pyLDAvis (interactive)
+import pyLDAvis.sklearn
+vis = pyLDAvis.sklearn\
+    .prepare(lda, X, vec)
+pyLDAvis.display(vis)
+\end{lstlisting}
+\vspace{0.1cm}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize \texttt{pyLDAvis} produces the most informative interactive topic visualization: circle sizes show topic prevalence; bar charts show term-topic probabilities; relevance slider adjusts specificity. R: \texttt{LDAvis} package.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 256 ──
+\begin{frame}{LDAvis: The Interactive Topic Explorer}
+\smark{256/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}
+    \item Left panel: topic circles on a 2D PCA projection
+    \item Circle size $\propto$ topic prevalence
+    \item Distance between circles $\approx$ topic similarity
+    \item Right panel: top-30 terms for the selected topic
+    \item \textbf{Relevance} slider ($\lambda$): $\lambda = 1$ ranks by $P(\text{word}|\text{topic})$; $\lambda = 0$ ranks by distinctiveness
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{exampleblock}{Data Insight}
+    \scriptsize The $\lambda$ slider is the key insight of LDAvis (Sievert \& Shirley, 2014). At $\lambda = 0.6$ (recommended), terms are ranked by a balance of frequency \textbf{and} exclusivity --- the most interpretable view.
+\end{exampleblock}
+\vspace{0.1cm}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize R: \texttt{LDAvis::createJSON()} + \texttt{serVis()}. Python: \texttt{pyLDAvis.prepare()} + \texttt{pyLDAvis.save\_html()}. Export as HTML for interactive use or screenshot for slides.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 257 ──
+\begin{frame}{Sentiment Analysis Displays}
+\smark{257/300}
+\centering
+\includegraphics[width=0.65\textwidth]{m3_9_sentiment.png}
+
+\vspace{0.2cm}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{itemize}
+    \item Sentiment = positive / negative / neutral classification of text
+    \item Diverging bar: positive right, negative left (same as Likert)
+    \item Compare across products, time periods, or topics
+    \item Net sentiment = \%positive $-$ \%negative
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Product C has the best sentiment balance (72\% positive, only 10\% negative). Product D is the most negative (40\%). The diverging format makes this comparison instant --- identical to the Likert paradigm from Module 3.4.
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 258 ──
+\begin{frame}[fragile]{Sentiment Analysis --- Code}\smark{258/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+library(tidytext)
+
+# Bing lexicon (pos/neg)
+sentiment <- corpus |>
+  unnest_tokens(word, text) |>
+  inner_join(get_sentiments("bing"))
+
+# Count by document + sentiment
+sent_counts <- sentiment |>
+  count(document, sentiment) |>
+  pivot_wider(names_from=sentiment,
+    values_from=n, values_fill=0) |>
+  mutate(net = positive - negative)
+
+# Diverging bar
+ggplot(sent_counts,
+  aes(y=document)) +
+  geom_col(aes(x=positive),
+    fill="#1B9E77") +
+  geom_col(aes(x=-negative),
+    fill="#B2182B") +
+  geom_vline(xintercept=0)
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+# VADER (sentence-level)
+from vaderSentiment.vaderSentiment\
+    import SentimentIntensityAnalyzer
+sia = SentimentIntensityAnalyzer()
+
+scores = [sia.polarity_scores(text)
+    for text in corpus]
+# Returns: neg, neu, pos, compound
+
+# TextBlob (simpler)
+from textblob import TextBlob
+polarity = [TextBlob(text).sentiment\
+    .polarity for text in corpus]
+
+# Diverging bar
+ax.barh(y, positive, color="#1B9E77")
+ax.barh(y, [-n for n in negative],
+    color="#B2182B")
+ax.axvline(0, color="#333")
+\end{lstlisting}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 259 ──
+\begin{frame}{Sentiment Over Time}
+\smark{259/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}
+    \item Track net sentiment per time period (day, week, month)
+    \item Line chart: sentiment score over time
+    \item Ribbon: smoothed sentiment $\pm$ CI
+    \item Event markers: annotate spikes/dips with known events
+    \item Narrative arcs: sentiment trajectory through a novel or speech
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize R: \texttt{sentimentr::get\_sentences() |> sentiment\_by()} computes sentence-level sentiment that can be aggregated over time. Python: VADER for social media; TextBlob for general text. For narrative arcs, use a rolling-window smoother.
+\end{alertblock}
+\vspace{0.1cm}
+\begin{exampleblock}{Data Insight}
+    \scriptsize The ``narrative arc'' visualization (sentiment over chapters of a novel) was popularized by Reagan et al.\ (2016): most stories follow one of six basic emotional trajectories (``rags to riches,'' ``tragedy,'' etc.).
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 260 ──
+\begin{frame}{N-Gram Frequency and Comparison}
+\smark{260/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}
+    \item Unigrams: single words (``model'')
+    \item Bigrams: two-word phrases (``random forest'')
+    \item Trigrams: three-word phrases (``support vector machine'')
+    \item Higher $n$-grams capture multi-word concepts
+    \item Visualize: same frequency bar chart, but for $n$-grams
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize R: \texttt{unnest\_tokens(bigram, text, token="ngrams", n=2)}. Python: \texttt{CountVectorizer(ngram\_range=(2,2))}. Bigrams are more interpretable than unigrams: ``data science'' is meaningful; ``data'' alone is ambiguous.
+\end{alertblock}
+\vspace{0.1cm}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Compare corpora by log-ratio of bigram frequencies: $\log_2(f_A / f_B)$. Positive = more frequent in corpus A; negative = more frequent in B. The log-ratio bar chart is the text-analysis analog of the volcano plot.
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 261 ──
+\begin{frame}[fragile]{N-Gram Frequency --- Code}\smark{261/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+library(tidytext)
+
+# Bigrams
+bigrams <- corpus |>
+  unnest_tokens(bigram, text,
+    token="ngrams", n=2) |>
+  count(bigram, sort=TRUE)
+
+# Separate for filtering
+bigrams_sep <- bigrams |>
+  separate(bigram,
+    c("word1","word2"), sep=" ") |>
+  filter(!word1 %in% stop_words$word,
+         !word2 %in% stop_words$word)|>
+  unite(bigram, word1, word2,
+    sep=" ")
+
+# Bar chart
+ggplot(head(bigrams_sep, 15), ...)
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+from sklearn.feature_extraction\
+    .text import CountVectorizer
+
+# Bigrams
+vec = CountVectorizer(
+    ngram_range=(2, 2),
+    stop_words="english",
+    max_features=20)
+X = vec.fit_transform(corpus)
+bigram_freqs = X.sum(axis=0).A1
+bigrams = vec.get_feature_names_out()
+
+# Log-ratio comparison
+ratio = np.log2(
+    (freqs_A + 1) / (freqs_B + 1))
+# +1 smoothing for zero counts
+ax.barh(terms, ratio, color=[
+    "#2166AC" if r>0 else "#B2182B"
+    for r in ratio])
+ax.axvline(0, color="#333")
+\end{lstlisting}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 262 ──
+\begin{frame}{Text Network Graphs}
+\smark{262/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}
+    \item Nodes = words; edges = co-occurrence
+    \item Edge weight $\propto$ co-occurrence frequency
+    \item Clusters reveal thematic groups
+    \item Layout: force-directed (Fruchterman--Reingold)
+    \item Filter: keep only edges above a frequency threshold
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize R: \texttt{ggraph} + \texttt{tidygraph} for co-occurrence networks. Build from bigrams: each bigram is an edge. Python: \texttt{networkx} + \texttt{matplotlib}. For interactive: \texttt{pyvis} or \texttt{visNetwork} (R).
+\end{alertblock}
+\vspace{0.1cm}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Co-occurrence networks reveal structure that frequency bars miss: ``random'' and ``forest'' always co-occur, forming a tight cluster. ``Machine'' connects to both ``learning'' and ``support,'' acting as a bridge node.
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 263 ──
+\begin{frame}[fragile]{Co-Occurrence Network --- Code}\smark{263/300}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Rstyle]
+library(tidygraph)
+library(ggraph)
+
+# Build graph from bigrams
+graph <- bigram_counts |>
+  filter(n > 5) |>
+  graph_from_data_frame()
+
+ggraph(graph,
+    layout="fr") +
+  geom_edge_link(
+    aes(alpha=n, width=n),
+    color="#2166AC") +
+  geom_node_point(size=3) +
+  geom_node_text(
+    aes(label=name),
+    repel=TRUE, size=3) +
+  theme_void()
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=Pystyle]
+import networkx as nx
+
+G = nx.Graph()
+for (w1, w2), freq in \
+    bigram_freqs.items():
+    if freq > 5:
+        G.add_edge(w1, w2,
+            weight=freq)
+
+pos = nx.spring_layout(G, seed=42)
+edges = G.edges(data=True)
+weights = [e[2]["weight"]*0.3
+    for e in edges]
+
+nx.draw(G, pos,
+    with_labels=True,
+    node_size=300,
+    node_color="#2166AC",
+    font_size=8,
+    width=weights,
+    edge_color="#CCC",
+    ax=ax)
+\end{lstlisting}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 264 ──
+\begin{frame}{Keyword-in-Context (KWIC) Displays}
+\smark{264/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}
+    \item Show every occurrence of a keyword with surrounding context
+    \item Format: left context | \textbf{keyword} | right context
+    \item Reveals usage patterns, collocations, and sense disambiguation
+    \item The text-analysis ``microscope'': zooms in after frequency analysis identifies interesting terms
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize R: \texttt{quanteda::kwic(corpus, "model", window=5)}. Python: \texttt{nltk.text.Text(tokens).concordance("model")}. KWIC is not a chart --- it is a \textbf{table} --- but it is essential for validating that word counts actually mean what you think they mean.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 265 ──
+\begin{frame}{Text Visualization Package Ecosystem}
+\smark{265/300}
+\centering\small
+\begin{tabular}{@{}lll@{}}
+    \toprule
+    \textbf{Task} & \textbf{R} & \textbf{Python} \\
+    \midrule
+    Tokenization      & \texttt{tidytext}, \texttt{quanteda}    & \texttt{nltk}, \texttt{spaCy} \\
+    Word frequency    & \texttt{tidytext::count()}              & \texttt{CountVectorizer} \\
+    TF-IDF            & \texttt{tidytext::bind\_tf\_idf()}      & \texttt{TfidfVectorizer} \\
+    Word cloud        & \texttt{wordcloud2}, \texttt{ggwordcloud} & \texttt{wordcloud} \\
+    Topic model       & \texttt{topicmodels::LDA}               & \texttt{sklearn.LatentDirichletAllocation} \\
+    LDAvis            & \texttt{LDAvis}                         & \texttt{pyLDAvis} \\
+    Sentiment         & \texttt{tidytext} + lexicons            & \texttt{VADER}, \texttt{TextBlob} \\
+    Network           & \texttt{ggraph}, \texttt{tidygraph}     & \texttt{networkx}, \texttt{pyvis} \\
+    KWIC              & \texttt{quanteda::kwic()}               & \texttt{nltk.concordance()} \\
+    \bottomrule
+\end{tabular}
+\end{frame}
+
+% ── 266 ──
+\begin{frame}{Text Visualization Decision Guide}
+\smark{266/300}
+\centering\small
+\begin{tabular}{@{}lll@{}}
+    \toprule
+    \textbf{Question} & \textbf{Chart} & \textbf{Tool} \\
+    \midrule
+    What are the most frequent terms?    & Frequency bar (sorted)     & \texttt{tidytext} / \texttt{CountVectorizer} \\
+    How does frequency decay?            & Zipf's law log-log plot    & Manual \\
+    What distinguishes two corpora?      & TF-IDF dodged bar          & \texttt{bind\_tf\_idf} / \texttt{TfidfVectorizer} \\
+    What is each document about?         & DTM heatmap                & \texttt{pheatmap} / \texttt{sns.heatmap} \\
+    What themes emerge?                  & LDA topic bars + LDAvis    & \texttt{topicmodels} / \texttt{sklearn} \\
+    What is the sentiment?               & Diverging sentiment bar    & \texttt{tidytext} / VADER \\
+    How does sentiment evolve?           & Line chart over time       & Manual \\
+    Which words co-occur?                & Co-occurrence network      & \texttt{ggraph} / \texttt{networkx} \\
+    Informal overview / engagement       & Word cloud                 & \texttt{wordcloud2} / \texttt{wordcloud} \\
+    \bottomrule
+\end{tabular}
+\end{frame}
+
+% ── 267 ──
+\begin{frame}{Text Visualization Anti-Patterns}
+\smark{267/300}
+\centering\small
+\begin{tabular}{@{}ll@{}}
+    \toprule
+    \textbf{Anti-Pattern} & \textbf{Fix} \\
+    \midrule
+    Word cloud as sole analysis          & Use frequency bar for precision; cloud for engagement \\
+    Including stop words                 & Filter before any visualization \\
+    Raw counts across unequal corpora    & Normalize by TF-IDF or corpus size \\
+    Too many terms on one display        & Top-$k$ only (15--25); aggregate rest \\
+    Topic model without coherence check  & Compute coherence score; try multiple $k$ \\
+    Sentiment without validation         & Spot-check with KWIC on high/low-scored text \\
+    Network without edge threshold       & Keep only edges above frequency cutoff \\
+    \bottomrule
+\end{tabular}
+\end{frame}
+
+% ── 268 ──
+\begin{frame}{Correspondence Analysis for Text}
+\smark{268/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}
+    \item CA on the document-term matrix $=$ Latent Semantic Analysis (LSA)
+    \item Biplot: documents and terms in the same space
+    \item Documents near a term use it disproportionately
+    \item Equivalent to SVD-based topic discovery
+    \item Workshop 3 Module 3.5 + this module's DTM $=$ complete pipeline
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{alertblock}{Pro-Tip}
+    \scriptsize R: \texttt{FactoMineR::CA(dtm\_matrix)}. Python: \texttt{prince.CA().fit(dtm\_df)}. The CA biplot on text data reveals which documents cluster together and which terms define those clusters --- a visual topic model without the probabilistic machinery of LDA.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 269 ──
+\begin{frame}{Case Study: Comparing Political Speeches}
+\smark{269/300}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+    \textbf{Pipeline:}
+    \begin{enumerate}
+        \item Tokenize speeches by speaker
+        \item Remove stop words
+        \item Compute TF-IDF per speaker
+        \item Faceted bar chart: top 10 TF-IDF terms per speaker
+        \item Sentiment over speech paragraphs
+        \item CA biplot: speakers $\times$ terms
+    \end{enumerate}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{exampleblock}{Data Insight}
+    \scriptsize Each speaker's TF-IDF signature reveals their distinctive vocabulary. The CA biplot positions speakers in term-space: speakers with similar language cluster together. The sentiment trajectory shows rhetorical structure (opening positive, middle challenging, closing inspiring).
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ── 270 ──
+\begin{frame}{Module 3.9 --- Key Takeaways}\smark{270/300}
+\begin{enumerate}
+    \item \textbf{Text tokens are nominal categories}; all categorical tools apply (with sparse-data adaptations).
+    \item \textbf{Frequency bars} beat word clouds for precision; word clouds win for engagement.
+    \item \textbf{TF-IDF} identifies distinctive terms; dodged bars compare corpora.
+    \item \textbf{LDA topic bars + LDAvis} are the standard for topic model visualization.
+    \item \textbf{Sentiment diverging bars} use the same Likert paradigm from Module 3.4.
+    \item \textbf{CA on the DTM} (= LSA) produces a visual topic model without LDA's assumptions.
+\end{enumerate}
+\end{frame}
+
+% ── 271 ──
+\begin{frame}{}\smark{271/300}
+\centering\vspace{1.5cm}
+{\Large\textbf{Module 3.9 Complete}}\\[0.5cm]
+You can now visualize text data as categorical: frequency bars, word clouds, Zipf plots, TF-IDF comparisons, document-term heatmaps, LDA topic bars, sentiment diverging bars, and co-occurrence networks.\\[0.5cm]
+\textbf{Next:} Module 3.10 --- Workshop 3 Summary and Comprehensive Reference.
+\end{frame}
+
+% ═══════════════════════════════════════════════════════
+%  MODULE 3.10+ — Append here
 % ═══════════════════════════════════════════════════════
 
 \end{document}
